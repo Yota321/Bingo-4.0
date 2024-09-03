@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bingo Game</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+        .bingo-container {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+        }
+        .bingo-box {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #3498db;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .bingo-box.marked {
+            background-color: #2ecc71;
+        }
+        .bingo-letters-container {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .bingo-letter-box {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #2ecc71; /* Green before being marked */
+            color: white;
+            font-size: 24px;
+            user-select: none;
+        }
+        .bingo-letter-box.marked {
+            background-color: #e74c3c; /* Reddish after being marked */
+        }
+        .dark-mode {
+            background-color: #333;
+            color: #fff;
+        }
+        .dark-mode .bingo-box {
+            background-color: #555;
+        }
+        .dark-mode .bingo-box.marked {
+            background-color: #ff5722;
+        }
+        .dark-mode .bingo-letter-box {
+            background-color: #ff5722; /* Greenish in dark mode before being marked */
+        }
+        .dark-mode .bingo-letter-box.marked {
+            background-color: #2ecc71; /* Reddish in dark mode after being marked */
+        }
+    </style>
+</head>
+<body>
+    <div class="bingo-letters-container">
+        <div class="bingo-letter-box" id="letterB">B</div>
+        <div class="bingo-letter-box" id="letterI">I</div>
+        <div class="bingo-letter-box" id="letterN">N</div>
+        <div class="bingo-letter-box" id="letterG">G</div>
+        <div class="bingo-letter-box" id="letterO">O</div>
+    </div>
+    <div class="bingo-container"></div>
+    <audio id="winSound" src="win.mp3"></audio>
+    <script>
+        const bingoContainer = document.querySelector('.bingo-container');
+        const bingoLetters = document.querySelectorAll('.bingo-letter-box');
+        const winSound = document.getElementById('winSound');
+        let markedBoxes = [];
+        let completedLines = [];
+        let markedLetters = 0;
+        let numbers = Array.from({ length: 25 }, (_, i) => i + 1); // Generate numbers from 1 to 25
+        let darkModeEnabled = false;
+        let manualModeEnabled = false;  // Track if manual mode is enabled
+
+        function createBoard() {
+            bingoContainer.innerHTML = ''; // Clear the board first
+            numbers = shuffle(numbers); // Shuffle the numbers
+
+            numbers.forEach((number, index) => {
+                const box = document.createElement('div');
+                box.classList.add('bingo-box');
+                box.innerHTML = `<span>${number}</span>`;
+                box.addEventListener('click', () => toggleBox(box, index));
+                bingoContainer.appendChild(box);
+            });
+        }
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function toggleBox(box, index) {
+            if (!manualModeEnabled) {  // Ensure this runs only in non-manual mode
+                if (markedBoxes.includes(index)) {
+                    box.classList.remove('marked');
+                    markedBoxes = markedBoxes.filter(i => i !== index);
+                } else {
+                    box.classList.add('marked');
+                    markedBoxes.push(index);
+                    navigator.vibrate(100); // Single short vibration on marking a box
+                }
+                checkWin();
+            }
+        }
+
+        function checkWin() {
+            let linesCompleted = 0;
+
+            // Horizontal and Vertical checks
+            for (let i = 0; i < 5; i++) {
+                let horizontalMarkedCount = 0;
+                let verticalMarkedCount = 0;
+
+                for (let j = 0; j < 5; j++) {
+                    // Horizontal line check
+                    if (markedBoxes.includes(i * 5 + j)) {
+                        horizontalMarkedCount++;
+                    }
+                    // Vertical line check
+                    if (markedBoxes.includes(j * 5 + i)) {
+                        verticalMarkedCount++;
+                    }
+                }
+
+                if (horizontalMarkedCount === 5 && !completedLines.includes(`row${i}`)) {
+                    completedLines.push(`row${i}`);
+                    linesCompleted++;
+                }
+                if (verticalMarkedCount === 5 && !completedLines.includes(`col${i}`)) {
+                    completedLines.push(`col${i}`);
+                    linesCompleted++;
+                }
+            }
+
+            // Diagonal checks
+            let diagonal1MarkedCount = 0;
+            let diagonal2MarkedCount = 0;
+
+            for (let i = 0; i < 5; i++) {
+                // Left-to-right diagonal check
+                if (markedBoxes.includes(i * 5 + i)) {
+                    diagonal1MarkedCount++;
+                }
+                // Right-to-left diagonal check
+                if (markedBoxes.includes(i * 5 + (4 - i))) {
+                    diagonal2MarkedCount++;
+                }
+            }
+
+            if (diagonal1MarkedCount === 5 && !completedLines.includes('diag1')) {
+                completedLines.push('diag1');
+                linesCompleted++;
+            }
+            if (diagonal2MarkedCount === 5 && !completedLines.includes('diag2')) {
+                completedLines.push('diag2');
+                linesCompleted++;
+            }
+
+            // Mark B-I-N-G-O letters based on the number of lines completed
+            for (let i = 0; i < linesCompleted; i++) {
+                if (markedLetters < 5) {
+                    bingoLetters[markedLetters].classList.add('marked');
+                    markedLetters++;
+                }
+            }
+
+            if (markedLetters === 5) {
+                winSound.play();
+                navigator.vibrate([200, 100, 200, 100, 200]); // Long vibration pattern for win
+                confetti(); // Trigger confetti animation
+                setTimeout(() => alert('You Win!'), 500);
+            }
+        }
+
+        bingoLetters.forEach(letter => {
+            letter.addEventListener('click', () => {
+                const mode = prompt("Choose an option: '1' for Dark Mode, '2' for Manual Entry:");
+                if (mode === '1') {
+                    toggleDarkMode();
+                } else if (mode === '2') {
+                    manualEntryMode();
+                }
+            });
+        });
+
+        function toggleDarkMode() {
+            darkModeEnabled = !darkModeEnabled;
+            document.body.classList.toggle('dark-mode', darkModeEnabled);
+        }
+
+        function manualEntryMode() {
+            manualModeEnabled = true;  // Enable manual mode
+            numbers = Array(25).fill(null); // Clear the numbers array
+            bingoContainer.innerHTML = ''; // Clear the current board
+
+            // Create empty boxes for manual number entry
+            for (let i = 0; i < 25; i++) {
+                const box = document.createElement('div');
+                box.classList.add('bingo-box');
+                box.innerHTML = '<span></span>';
+                bingoContainer.appendChild(box);
+
+                box.addEventListener('click', () => manualNumberEntry(box, i)); // Add event listener for manual entry
+            }
+
+            // Reset necessary variables
+            markedBoxes = [];
+            completedLines = [];
+            markedLetters = 0;
+
+            // Remove marks from bingo letters
+            bingoLetters.forEach(letter => letter.classList.remove('marked'));
+        }
+
+        function manualNumberEntry(box, index) {
+            const newNumber = prompt("Enter a number:");
+            if (newNumber !== null && !isNaN(newNumber) && newNumber.trim() !== "") {
+                numbers[index] = Number(newNumber);numbers[index] = Number(newNumber); // Update the numbers array
+                box.querySelector('span').innerText = newNumber; // Update the box with the new number
+            } else {
+                alert("Please enter a valid number.");
+            }
+        }
+
+        // Initialize the game board
+        createBoard();
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+</body>
+</html>
