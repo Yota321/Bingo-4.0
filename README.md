@@ -1,1 +1,1 @@
-# Bingo-4.0
+# A bingo game you can play with friends 
