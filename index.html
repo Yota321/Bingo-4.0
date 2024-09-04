@@ -94,16 +94,32 @@
             transition: background-color 0.3s, color 0.3s;
         }
         .modal-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
             margin-top: 20px;
         }
         .modal-buttons button {
-            margin: 0 10px;
-            padding: 5px 10px;
+            padding: 10px;
             cursor: pointer;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        .modal-buttons button:hover {
+            background-color: #2980b9;
         }
         .dark-mode .modal-content {
             background-color: #444;
             color: #fff;
+        }
+        .dark-mode .modal-buttons button {
+            background-color: #555;
+        }
+        .dark-mode .modal-buttons button:hover {
+            background-color: #666;
         }
     </style>
 </head>
@@ -122,10 +138,13 @@
         <div class="modal-content">
             <h2>Choose an option:</h2>
             <div class="modal-buttons">
-                <button onclick="toggleDarkMode()">Dark Mode</button>
+                <button onclick="toggleDarkMode()" id="darkModeBtn">Dark Mode</button>
                 <button onclick="manualEntryMode()">Manual Entry</button>
                 <button onclick="toggleSound()">Toggle Sound</button>
+                <button onclick="stopVibration()">Stop Vibration</button>
                 <button onclick="resetGame()">Reset Game</button>
+                <button onclick="autoFill()">Auto Fill</button>
+                <button onclick="showHelp()">Help</button>
             </div>
         </div>
     </div>
@@ -162,11 +181,12 @@
         let darkModeEnabled = false;
         let manualModeEnabled = false;
         let soundEnabled = true;
+        let vibrationEnabled = true;  // New flag for vibration
         let promptCallback = null;
 
         // Create the initial game board
         function createBoard() {
-            bingoContainer.innerHTML = '';
+            bingoContainer.innerHTML = '';  // Clear any existing boxes
             numbers = shuffle(numbers);
 
             numbers.forEach((number, index) => {
@@ -196,7 +216,7 @@
                 } else {
                     box.classList.add('marked');
                     markedBoxes.push(index);
-                    navigator.vibrate(100);
+                    if (vibrationEnabled) navigator.vibrate(100);  // Only vibrate if enabled
                 }
                 checkWin();
             }
@@ -256,7 +276,7 @@
             if (markedLetters === 5) {
                 if (soundEnabled) {
                     winSound.play();
-                    navigator.vibrate([200, 100, 200, 100, 200]);
+                    if (vibrationEnabled) navigator.vibrate([200, 100, 200, 100, 200]);  // Only vibrate if enabled
                 }
                 confetti();
                 setTimeout(() => showAlert('You Win!'), 500);
@@ -267,6 +287,13 @@
         function toggleSound() {
             soundEnabled = !soundEnabled;
             showAlert(soundEnabled ? "Sound On" : "Sound Off");
+            closeModal('optionsModal');
+        }
+
+        // Stop vibration
+        function stopVibration() {
+            vibrationEnabled = false;
+            showAlert("Vibration stopped");
             closeModal('optionsModal');
         }
 
@@ -287,6 +314,7 @@
         function toggleDarkMode() {
             darkModeEnabled = !darkModeEnabled;
             document.body.classList.toggle('dark-mode', darkModeEnabled);
+            document.getElementById('darkModeBtn').style.backgroundColor = darkModeEnabled ? '#555' : '#3498db';
             closeModal('optionsModal');
         }
 
@@ -323,6 +351,50 @@
                     showAlert("Please enter a valid number.");
                 }
             });
+        }
+
+        // Auto fill the board
+        function autoFill() {
+            if (!manualModeEnabled) {
+                showAlert("Auto Fill only works in Manual Entry mode");
+                return;
+            }
+            
+            const boxes = document.querySelectorAll('.bingo-box');
+            const usedNumbers = new Set(numbers.filter(n => n !== null));
+            const availableNumbers = Array.from({length: 25}, (_, i) => i + 1)
+                .filter(n => !usedNumbers.has(n));
+            
+            boxes.forEach((box, index) => {
+                if (numbers[index] === null) {
+                    const newNumber = availableNumbers.pop();
+                    numbers[index] = newNumber;
+                    box.querySelector('span').innerText = newNumber;
+                }
+            });
+
+            manualModeEnabled = false; // Allow normal game play after auto fill
+            closeModal('optionsModal');
+        }
+
+        // Show help information
+        function showHelp() {
+            const helpMessage = `
+            How to play Bingo:
+            1. Click on numbers to mark them.
+            2. Complete a row, column, or diagonal to mark a letter in BINGO.
+            3. Mark all BINGO letters to win!
+
+            Options:
+            - Dark Mode: Toggle dark/light theme
+            - Manual Entry: Manually enter numbers
+            - Toggle Sound: Turn sound on/off
+            - Stop Vibration: Stop device vibration
+            - Reset Game: Start a new game
+            - Auto Fill: Fill empty boxes in Manual Entry mode
+            `;
+            showAlert(helpMessage);
+            closeModal('optionsModal');
         }
 
         // Modal handling functions
@@ -363,6 +435,6 @@
         // Initialize the game
         createBoard();
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.2/dist/confetti.browser.min.js"></script>
 </body>
 </html>
